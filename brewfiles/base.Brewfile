@@ -23,4 +23,4 @@ brew "tree"
 ## Fonts
 cask "font-jetbrains-mono-nerd-font"
 cask "font-pretendard"
-case "font-iosevka"
+cask "font-iosevka"
