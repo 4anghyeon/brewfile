@@ -48,6 +48,7 @@ ensure_brew() {
 install_brewfile() {
   local name="$1"
   local file="$BREWFILES_DIR/${name}.Brewfile"
+  local interactive="${2:-false}"
 
   if [[ ! -f "$file" ]]; then
     error "${name}.Brewfile not found: $file"
@@ -58,7 +59,83 @@ install_brewfile() {
   log "📦 Installing ${name}.Brewfile..."
   echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
-  brew bundle --file="$file" || warn "Some packages failed to install (continuing)"
+  if [[ "$interactive" == "true" ]]; then
+    install_brewfile_interactive "$name" "$file"
+  else
+    brew bundle --file="$file" || warn "Some packages failed to install (continuing)"
+    success "${name}.Brewfile done!"
+  fi
+}
+
+# ── Interactive install (ask per item) ───────────────────────
+install_brewfile_interactive() {
+  local name="$1"
+  local file="$2"
+  local tmp_file
+  tmp_file="$(mktemp /tmp/Brewfile.XXXXXX)"
+
+  echo ""
+  log "항목을 하나씩 확인합니다. 설치할 항목에 y를 입력하세요."
+  echo ""
+
+  local current_comment=""
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # 빈 줄 — 섹션 구분자이므로 주석 초기화
+    if [[ -z "$line" ]]; then
+      current_comment=""
+      continue
+    fi
+
+    # 주석 라인 — 섹션 헤더로 저장
+    if [[ "$line" =~ ^[[:space:]]*# ]]; then
+      current_comment="${line#*#}"
+      current_comment="${current_comment## }"
+      continue
+    fi
+
+    # brew / cask / tap 라인만 처리
+    if [[ "$line" =~ ^[[:space:]]*(brew|cask|tap)[[:space:]] ]]; then
+      # 패키지 이름 추출 (첫 번째 따옴표 안의 값)
+      local pkg
+      pkg="$(echo "$line" | grep -oE '"[^"]+"' | head -1 | tr -d '"')" || true
+
+      # 인라인 주석 추출
+      local inline_desc=""
+      if [[ "$line" =~ \#[[:space:]]*(.+)$ ]]; then
+        inline_desc="${BASH_REMATCH[1]}"
+      fi
+
+      # 사용자에게 표시할 설명
+      local desc="${inline_desc:-${current_comment}}"
+      if [[ -n "$desc" ]]; then
+        printf "  ${CYAN}%-40s${RESET} %s\n" "$pkg" "$desc"
+      else
+        printf "  ${CYAN}%s${RESET}\n" "$pkg"
+      fi
+
+      printf "  설치하시겠습니까? [Y/n] "
+      local answer
+      read -r answer </dev/tty || true
+      if [[ -z "$answer" || "$answer" == " " || "$answer" =~ ^[Yy]$ ]]; then
+        echo "$line" >> "$tmp_file"
+        success "  → 선택됨: $pkg"
+      else
+        warn "  → 건너뜀: $pkg"
+      fi
+      echo ""
+    fi
+  done < "$file"
+
+  if [[ ! -s "$tmp_file" ]]; then
+    warn "선택된 항목이 없습니다. ${name}.Brewfile 건너뜀."
+    rm -f "$tmp_file"
+    return
+  fi
+
+  echo ""
+  log "선택한 항목을 설치합니다..."
+  brew bundle --file="$tmp_file" || warn "일부 패키지 설치에 실패했습니다 (계속 진행)"
+  rm -f "$tmp_file"
 
   success "${name}.Brewfile done!"
 }
@@ -70,7 +147,7 @@ main() {
   echo ""
 
   ensure_brew
-  brew update
+  brew update || warn "brew update failed, continuing"
 
   # base is always installed
   install_brewfile "base"
@@ -86,11 +163,13 @@ main() {
   for profile in "${profiles[@]}"; do
     case "$profile" in
       all)
-        install_brewfile "dev"
-        install_brewfile "work"
-        install_brewfile "personal"
+        install_brewfile "dev" "true"
+        install_brewfile "personal" "true"
         ;;
-      dev|work|personal)
+      dev|personal)
+        install_brewfile "$profile" "true"
+        ;;
+      work)
         install_brewfile "$profile"
         ;;
       *)
