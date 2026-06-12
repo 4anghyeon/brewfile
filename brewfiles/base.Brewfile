@@ -14,7 +14,8 @@ cask "google-chrome"                  # Google Chrome
 # --- macOS Productivity ---
 cask "raycast"                        # Spotlight alternative
 cask "bettertouchtool"                # 제스처,키보드 커스터마이징
-cask "Sanyam-G/switch/switch"         # alt-tab alternative
+tap "Sanyam-G/switch"
+cask "switch"                         # alt-tab alternative
 cask "shottr"                         # 스크린샷 도구
 cask "clop"                           # 클립보드 이미지 자동 최적화
 cask "bloom"                          # finder alternative

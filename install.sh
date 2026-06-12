@@ -62,7 +62,7 @@ install_brewfile() {
   if [[ "$interactive" == "true" ]]; then
     install_brewfile_interactive "$name" "$file"
   else
-    brew bundle --file="$file" || warn "Some packages failed to install (continuing)"
+    brew bundle --file="$file" --verbose || warn "Some packages failed to install (continuing)"
     success "${name}.Brewfile done!"
   fi
 }
@@ -134,7 +134,7 @@ install_brewfile_interactive() {
 
   echo ""
   log "선택한 항목을 설치합니다..."
-  brew bundle --file="$tmp_file" || warn "일부 패키지 설치에 실패했습니다 (계속 진행)"
+  brew bundle --file="$tmp_file" --verbose || warn "일부 패키지 설치에 실패했습니다 (계속 진행)"
   rm -f "$tmp_file"
 
   success "${name}.Brewfile done!"
